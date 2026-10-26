@@ -1,46 +1,50 @@
-
-import matplotlib.pyplot as plt
-import matplotlib.pyplot as plt
 import numpy as np
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.model_selection import train_test_split
-
+import pandas as pd
 
 np.random.seed(42)
-X = 2 * np.random.rand(100, 1)  
-y = 4 + 3 * X + np.random.randn(100, 1)   
-
-# 
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
-)
-
-lin_reg = LinearRegression()
-
-lin_reg.fit(X_train, y_train)
 
 
-y_pred = lin_reg.predict(X_test)
+n = 200
+class0 = np.random.randn(n, 2) + [-2, -2]
+class1 = np.random.randn(n, 2) + [2, 2]
+df = pd.DataFrame(np.vstack([class0, class1]), columns=["x1", "x2"])
+df["label"] = [0] * n + [1] * n
+df = df.sample(frac=1, random_state=42).reset_index(drop=True)  # shuffle
 
 
-print(f' (Slope / Coefficient): {lin_reg.coef_[0][0]:.2f}')
-print(f' (Intercept): {lin_reg.intercept_[0]:.2f}')
-print(f' y = {lin_reg.coef_[0][0]:.2f}*X + {lin_reg.intercept_[0]:.2f}\n')
+split = int(0.8 * len(df))
+train, test = df[:split], df[split:]
+X_train, y_train = train[["x1", "x2"]].values, train["label"].values
+X_test, y_test = test[["x1", "x2"]].values, test["label"].values
 
 
-mse = mean_squared_error(y_test, y_pred)
-r2 = r2_score(y_test, y_pred)
-print(f'(MSE): {mse:.2f}')
-print(f'  (R2 Score): {r2:.2f} (the nearest to 1 the best is the model)\n')
+
+def sigmoid(z):
+    return 1 / (1 + np.exp(-z))
 
 
-plt.scatter(X_test, y_test, color='blue', label='real data (Test Data)')
-plt.plot(
-    X_test, y_pred, color='red', linewidth=2, label= '    (Model)'
-)
-plt.xlabel('feature (X)')
-plt.ylabel('result (y)')
-plt.title('Linear Regression Example')
-plt.legend()
-plt.show()
+w = np.zeros(X_train.shape[1])
+b = 0.0
+lr = 0.1
+
+for epoch in range(200):
+    p = sigmoid(X_train @ w + b)                       
+    loss = -np.mean(y_train * np.log(p + 1e-9) +
+                    (1 - y_train) * np.log(1 - p + 1e-9))  
+    dw = X_train.T @ (p - y_train) / len(y_train)      
+    db = np.mean(p - y_train)
+    w -= lr * dw                                       
+    b -= lr * db
+    if epoch % 40 == 0:
+        print(f"epoch {epoch:3d} | loss = {loss:.4f}")
+
+
+pred = (sigmoid(X_test @ w + b) >= 0.5).astype(int)
+accuracy = np.mean(pred == y_test)
+tp = np.sum((pred == 1) & (y_test == 1))
+fp = np.sum((pred == 1) & (y_test == 0))
+fn = np.sum((pred == 0) & (y_test == 1))
+print(f"\naccuracy  = {accuracy:.3f}")
+print(f"precision = {tp / (tp + fp + 1e-9):.3f}")
+print(f"recall    = {tp / (tp + fn + 1e-9):.3f}")
+print("weights:", w, "bias:", b)
